@@ -16,29 +16,79 @@ type Step = {
   status: StepStatus;
 };
 
+type ConversationSnapshot = {
+  id: string;
+  messages: Message[];
+  provider: Provider;
+  mode: Mode;
+  updatedAt: string;
+};
+
+const CONVERSATIONS_KEY = "second-brain.conversations";
+const ACTIVE_CONVERSATION_KEY = "second-brain.active-conversation";
+
 const initialMessage: Message = {
   role: "assistant",
   content: "Pronto."
 };
 
-function buildSteps(mode: Mode, provider: Provider): Step[] {
+function createId() {
+  return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createConversation(
+  provider: Provider = "gemini",
+  mode: Mode = "explore"
+): ConversationSnapshot {
+  return {
+    id: createId(),
+    messages: [initialMessage],
+    provider,
+    mode,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function conversationTitle(messages: Message[]) {
+  const firstUserMessage = messages.find((message) => message.role === "user")?.content?.trim();
+  if (!firstUserMessage) return "Nova conversa";
+  return firstUserMessage.length > 42
+    ? `${firstUserMessage.slice(0, 42).trimEnd()}...`
+    : firstUserMessage;
+}
+
+function summarizePrompt(prompt: string) {
+  const compact = prompt.replace(/\s+/g, " ").trim();
+  if (!compact) return "sem resumo";
+  return compact.length > 72 ? `${compact.slice(0, 72).trimEnd()}...` : compact;
+}
+
+function buildSteps(
+  mode: Mode,
+  provider: Provider,
+  prompt: string,
+  messageCount: number
+): Step[] {
   const providerLabel = provider === "gemini" ? "Gemma" : "Qwen local";
+  const contextLabel =
+    messageCount > 2 ? `usando ${messageCount - 1} mensagens desta conversa` : "sem contexto anterior";
+  const promptLabel = summarizePrompt(prompt);
 
   if (mode === "explore") {
     return [
       {
-        title: "lendo o contexto",
-        detail: `Separando sinais, contexto e perguntas uteis para consultar ${providerLabel}.`,
+        title: "analisando o pedido",
+        detail: `${providerLabel} em modo explore · ${contextLabel} · foco: ${promptLabel}`,
         status: "running"
       },
       {
-        title: "mapeando possibilidades",
-        detail: "Levantando hipoteses, caminhos e pontos que merecem atencao.",
+        title: "levantando possibilidades",
+        detail: "Mapeando hipoteses, lacunas e pontos que merecem investigacao.",
         status: "pending"
       },
       {
-        title: "organizando leitura",
-        detail: "Transformando a exploracao em uma resposta clara e util.",
+        title: "organizando a leitura",
+        detail: "Convertendo a exploracao em uma resposta clara e util para seguir.",
         status: "pending"
       }
     ];
@@ -47,17 +97,17 @@ function buildSteps(mode: Mode, provider: Provider): Step[] {
   if (mode === "decide") {
     return [
       {
-        title: "estruturando o problema",
-        detail: `Separando problema, objetivo e restricoes para consulta com ${providerLabel}.`,
+        title: "estruturando a decisao",
+        detail: `${providerLabel} em modo decide · ${contextLabel} · alvo: ${promptLabel}`,
         status: "running"
       },
       {
-        title: "avaliando opcoes",
-        detail: "Comparando caminhos, riscos, custo de execucao e impacto.",
+        title: "comparando caminhos",
+        detail: "Pesando trade-offs, risco, esforco e impacto de cada direcao.",
         status: "pending"
       },
       {
-        title: "consolidando recomendacao",
+        title: "fechando recomendacao",
         detail: "Transformando a analise em direcao pratica e priorizada.",
         status: "pending"
       }
@@ -66,17 +116,17 @@ function buildSteps(mode: Mode, provider: Provider): Step[] {
 
   return [
     {
-      title: "entendendo o objetivo",
-      detail: `Organizando o pedido antes de enviar para ${providerLabel}.`,
+      title: "extraindo o objetivo",
+      detail: `${providerLabel} em modo build · ${contextLabel} · entrega: ${promptLabel}`,
       status: "running"
     },
     {
       title: "montando a estrutura",
-      detail: "Convertendo a ideia em algo concreto e utilizavel.",
+      detail: "Transformando a ideia em uma saida concreta e utilizavel.",
       status: "pending"
     },
     {
-      title: "finalizando a entrega",
+      title: "refinando a entrega",
       detail: "Ajustando o resultado final para ficar objetivo e pratico.",
       status: "pending"
     }
@@ -108,15 +158,112 @@ function advanceSteps(current: Step[]): Step[] {
 }
 
 export default function HomePage() {
-  const [messages, setMessages] = useState<Message[]>([initialMessage]);
-  const [provider, setProvider] = useState<Provider>("gemini");
-  const [mode, setMode] = useState<Mode>("explore");
+  const [conversations, setConversations] = useState<ConversationSnapshot[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string>("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [steps, setSteps] = useState<Step[]>([]);
+  const [visibleSteps, setVisibleSteps] = useState<Step[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
+  const currentConversationId = activeConversationId || conversations[0]?.id || "";
+
+  const activeConversation =
+    conversations.find((conversation) => conversation.id === currentConversationId) ||
+    conversations[0] ||
+    null;
+  const messages = activeConversation?.messages || [initialMessage];
+  const provider = activeConversation?.provider || "gemini";
+  const mode = activeConversation?.mode || "explore";
+
+  useEffect(() => {
+    try {
+      const rawConversations = window.localStorage.getItem(CONVERSATIONS_KEY);
+      const rawActiveId = window.localStorage.getItem(ACTIVE_CONVERSATION_KEY);
+      if (!rawConversations) {
+        const initialConversation = createConversation();
+        setConversations([initialConversation]);
+        setActiveConversationId(initialConversation.id);
+        setHydrated(true);
+        return;
+      }
+
+      const parsed = JSON.parse(rawConversations) as Partial<ConversationSnapshot>[];
+      const restored = Array.isArray(parsed)
+        ? parsed
+            .map((conversation) => {
+              const restoredMessages = Array.isArray(conversation.messages)
+                ? conversation.messages.filter(
+                    (message): message is Message =>
+                      !!message &&
+                      (message.role === "user" || message.role === "assistant") &&
+                      typeof message.content === "string"
+                  )
+                : [];
+
+              const restoredProvider =
+                conversation.provider === "gemini" || conversation.provider === "ollama"
+                  ? conversation.provider
+                  : "gemini";
+              const restoredMode =
+                conversation.mode === "explore" ||
+                conversation.mode === "decide" ||
+                conversation.mode === "build"
+                  ? conversation.mode
+                  : "explore";
+
+              if (!conversation.id || restoredMessages.length === 0) {
+                return null;
+              }
+
+              return {
+                id: conversation.id,
+                messages: restoredMessages,
+                provider: restoredProvider,
+                mode: restoredMode,
+                updatedAt: conversation.updatedAt || new Date().toISOString()
+              };
+            })
+            .filter((conversation): conversation is ConversationSnapshot => !!conversation)
+        : [];
+
+      if (restored.length === 0) {
+        const initialConversation = createConversation();
+        setConversations([initialConversation]);
+        setActiveConversationId(initialConversation.id);
+      } else {
+        setConversations(restored);
+        setActiveConversationId(
+          restored.some((conversation) => conversation.id === rawActiveId)
+            ? (rawActiveId as string)
+            : restored[0].id
+        );
+      }
+    } catch {
+      window.localStorage.removeItem(CONVERSATIONS_KEY);
+      window.localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+      const initialConversation = createConversation();
+      setConversations([initialConversation]);
+      setActiveConversationId(initialConversation.id);
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated || conversations.length === 0 || !activeConversationId) return;
+    window.localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
+    window.localStorage.setItem(ACTIVE_CONVERSATION_KEY, activeConversationId);
+  }, [activeConversationId, conversations, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || conversations.length === 0) return;
+    if (!activeConversationId || !conversations.some((conversation) => conversation.id === activeConversationId)) {
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [activeConversationId, conversations, hydrated]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -133,6 +280,21 @@ export default function HomePage() {
 
     return () => window.clearInterval(timer);
   }, [loading, steps.length]);
+
+  useEffect(() => {
+    if (steps.length > 0) {
+      setVisibleSteps(steps);
+      return;
+    }
+  }, [steps]);
+
+  useEffect(() => {
+    if (loading || steps.length > 0 || visibleSteps.length === 0) return;
+    const timer = window.setTimeout(() => {
+      setVisibleSteps([]);
+    }, 3500);
+    return () => window.clearTimeout(timer);
+  }, [loading, steps.length, visibleSteps.length]);
 
   function finalizeSteps() {
     setSteps((current) =>
@@ -160,17 +322,50 @@ export default function HomePage() {
     pauseSteps();
   }
 
+  function updateActiveConversation(
+    updater: (conversation: ConversationSnapshot) => ConversationSnapshot
+  ) {
+    if (!currentConversationId) return;
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === currentConversationId ? updater(conversation) : conversation
+      )
+    );
+  }
+
+  function onNewConversation() {
+    if (loading) return;
+    const nextConversation = createConversation(provider, mode);
+    setConversations((current) => [nextConversation, ...current]);
+    setActiveConversationId(nextConversation.id);
+    setInput("");
+    setError("");
+    setSteps([]);
+  }
+
+  function onSelectConversation(id: string) {
+    if (loading || id === activeConversationId) return;
+    setActiveConversationId(id);
+    setInput("");
+    setError("");
+    setSteps([]);
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const prompt = input.trim();
-    if (!prompt || loading) return;
+    if (!prompt || loading || !activeConversation) return;
 
     const nextMessages = [...messages, { role: "user" as const, content: prompt }];
-    setMessages(nextMessages);
+    updateActiveConversation((conversation) => ({
+      ...conversation,
+      messages: nextMessages,
+      updatedAt: new Date().toISOString()
+    }));
     setInput("");
     setError("");
     setLoading(true);
-    setSteps(buildSteps(mode, provider));
+    setSteps(buildSteps(mode, provider, prompt, messages.length));
     const controller = new AbortController();
     requestRef.current = controller;
 
@@ -193,10 +388,13 @@ export default function HomePage() {
         message: Message;
         meta?: { provider?: Provider; mode?: Mode; model?: string };
       };
-      if (data.meta?.provider) {
-        setProvider(data.meta.provider);
-      }
-      setMessages((current) => [...current, data.message]);
+      updateActiveConversation((conversation) => ({
+        ...conversation,
+        provider: data.meta?.provider || conversation.provider,
+        mode: data.meta?.mode || conversation.mode,
+        messages: [...conversation.messages, data.message],
+        updatedAt: new Date().toISOString()
+      }));
       finalizeSteps();
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -221,6 +419,32 @@ export default function HomePage() {
 
   return (
     <main className="shell">
+      <aside className="sidebar">
+        <button className="newConversationButton" onClick={onNewConversation} type="button">
+          nova conversa
+        </button>
+
+        <div className="conversationList" role="list" aria-label="Conversas">
+          {conversations.map((conversation) => (
+            <button
+              className={
+                conversation.id === currentConversationId
+                  ? "conversationItem is-active"
+                  : "conversationItem"
+              }
+              key={conversation.id}
+              onClick={() => onSelectConversation(conversation.id)}
+              type="button"
+            >
+              <strong>{conversationTitle(conversation.messages)}</strong>
+              <span>
+                {conversation.provider === "gemini" ? "gemma" : "qwen"} · {conversation.mode}
+              </span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
       <section className="workspace">
         <header className="topbar">
           <div className="topbar__left">
@@ -234,14 +458,26 @@ export default function HomePage() {
             <div className="segmented">
               <button
                 className={provider === "gemini" ? "is-active" : ""}
-                onClick={() => setProvider("gemini")}
+                onClick={() =>
+                  updateActiveConversation((conversation) => ({
+                    ...conversation,
+                    provider: "gemini",
+                    updatedAt: new Date().toISOString()
+                  }))
+                }
                 type="button"
               >
                 gemma
               </button>
               <button
                 className={provider === "ollama" ? "is-active" : ""}
-                onClick={() => setProvider("ollama")}
+                onClick={() =>
+                  updateActiveConversation((conversation) => ({
+                    ...conversation,
+                    provider: "ollama",
+                    updatedAt: new Date().toISOString()
+                  }))
+                }
                 type="button"
               >
                 qwen
@@ -251,21 +487,39 @@ export default function HomePage() {
             <div className="segmented">
               <button
                 className={mode === "explore" ? "is-active" : ""}
-                onClick={() => setMode("explore")}
+                onClick={() =>
+                  updateActiveConversation((conversation) => ({
+                    ...conversation,
+                    mode: "explore",
+                    updatedAt: new Date().toISOString()
+                  }))
+                }
                 type="button"
               >
                 explore
               </button>
               <button
                 className={mode === "decide" ? "is-active" : ""}
-                onClick={() => setMode("decide")}
+                onClick={() =>
+                  updateActiveConversation((conversation) => ({
+                    ...conversation,
+                    mode: "decide",
+                    updatedAt: new Date().toISOString()
+                  }))
+                }
                 type="button"
               >
                 decide
               </button>
               <button
                 className={mode === "build" ? "is-active" : ""}
-                onClick={() => setMode("build")}
+                onClick={() =>
+                  updateActiveConversation((conversation) => ({
+                    ...conversation,
+                    mode: "build",
+                    updatedAt: new Date().toISOString()
+                  }))
+                }
                 type="button"
               >
                 build
@@ -290,15 +544,20 @@ export default function HomePage() {
             </article>
           ))}
 
-          {loading && steps.length > 0 ? (
+          {visibleSteps.length > 0 ? (
             <section className="stepsCard" aria-label="Etapas em andamento">
-              <span className="bubble__role">run</span>
+              <div className="stepsCard__header">
+                <span className="bubble__role">thinking</span>
+                <span className="stepsCard__status">
+                  {loading ? "em andamento" : "concluido"}
+                </span>
+              </div>
               <div className="steps">
-                {steps.map((step, index) => (
+                {visibleSteps.map((step, index) => (
                   <details
                     className={`step step--${step.status}`}
                     key={`${step.title}-${index}`}
-                    open={step.status === "running"}
+                    open={step.status === "running" || step.status === "done"}
                   >
                     <summary>
                       <span className={`stepDot stepDot--${step.status}`} />
@@ -333,7 +592,7 @@ export default function HomePage() {
           />
 
           <div className="composer__footer">
-            <p>{error || "enter envia"}</p>
+            <p>{error || ""}</p>
             <div className="composer__actions">
               {loading ? (
                 <button className="secondaryButton" onClick={onPause} type="button">

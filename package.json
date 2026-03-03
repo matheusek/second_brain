@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "serve": "next start --hostname 0.0.0.0 --port 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:ui": "playwright test"
   },
   "dependencies": {
     "next": "15.5.10",
@@ -15,6 +16,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.54.2",
     "@types/node": "22.13.14",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",

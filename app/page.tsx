@@ -8,7 +8,7 @@ type Message = {
 };
 
 type Provider = "gemini" | "ollama";
-type Mode = "code" | "strategy" | "general";
+type Mode = "explore" | "decide" | "build";
 type StepStatus = "pending" | "running" | "done" | "paused";
 type Step = {
   title: string;
@@ -24,30 +24,30 @@ const initialMessage: Message = {
 function buildSteps(mode: Mode, provider: Provider): Step[] {
   const providerLabel = provider === "gemini" ? "Gemma" : "Qwen local";
 
-  if (mode === "code") {
+  if (mode === "explore") {
     return [
       {
-        title: "entendendo a tarefa",
-        detail: `Lendo o pedido e separando contexto, objetivo tecnico e restricoes para ${providerLabel}.`,
+        title: "lendo o contexto",
+        detail: `Separando sinais, contexto e perguntas uteis para consultar ${providerLabel}.`,
         status: "running"
       },
       {
-        title: "planejando a abordagem",
-        detail: "Definindo passos, trade-offs tecnicos e formato de resposta mais util.",
+        title: "mapeando possibilidades",
+        detail: "Levantando hipoteses, caminhos e pontos que merecem atencao.",
         status: "pending"
       },
       {
-        title: "gerando a resposta",
-        detail: "Montando a solucao com foco em codigo, arquitetura ou debug.",
+        title: "organizando leitura",
+        detail: "Transformando a exploracao em uma resposta clara e util.",
         status: "pending"
       }
     ];
   }
 
-  if (mode === "strategy") {
+  if (mode === "decide") {
     return [
       {
-        title: "estruturando o contexto",
+        title: "estruturando o problema",
         detail: `Separando problema, objetivo e restricoes para consulta com ${providerLabel}.`,
         status: "running"
       },
@@ -66,18 +66,18 @@ function buildSteps(mode: Mode, provider: Provider): Step[] {
 
   return [
     {
-      title: "entendendo o pedido",
-      detail: `Organizando a entrada antes de enviar para ${providerLabel}.`,
+      title: "entendendo o objetivo",
+      detail: `Organizando o pedido antes de enviar para ${providerLabel}.`,
       status: "running"
     },
     {
-      title: "processando",
-      detail: "Executando a consulta e condensando o que importa.",
+      title: "montando a estrutura",
+      detail: "Convertendo a ideia em algo concreto e utilizavel.",
       status: "pending"
     },
     {
-      title: "finalizando",
-      detail: "Preparando a resposta final de forma objetiva.",
+      title: "finalizando a entrega",
+      detail: "Ajustando o resultado final para ficar objetivo e pratico.",
       status: "pending"
     }
   ];
@@ -110,7 +110,7 @@ function advanceSteps(current: Step[]): Step[] {
 export default function HomePage() {
   const [messages, setMessages] = useState<Message[]>([initialMessage]);
   const [provider, setProvider] = useState<Provider>("gemini");
-  const [mode, setMode] = useState<Mode>("code");
+  const [mode, setMode] = useState<Mode>("explore");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -250,25 +250,25 @@ export default function HomePage() {
 
             <div className="segmented">
               <button
-                className={mode === "code" ? "is-active" : ""}
-                onClick={() => setMode("code")}
+                className={mode === "explore" ? "is-active" : ""}
+                onClick={() => setMode("explore")}
                 type="button"
               >
-                code
+                explore
               </button>
               <button
-                className={mode === "strategy" ? "is-active" : ""}
-                onClick={() => setMode("strategy")}
+                className={mode === "decide" ? "is-active" : ""}
+                onClick={() => setMode("decide")}
                 type="button"
               >
-                strategy
+                decide
               </button>
               <button
-                className={mode === "general" ? "is-active" : ""}
-                onClick={() => setMode("general")}
+                className={mode === "build" ? "is-active" : ""}
+                onClick={() => setMode("build")}
                 type="button"
               >
-                general
+                build
               </button>
             </div>
           </div>
@@ -321,11 +321,11 @@ export default function HomePage() {
             id="prompt"
             rows={3}
             placeholder={
-              mode === "code"
-                ? "Cole codigo, bug, arquitetura ou tarefa"
-                : mode === "strategy"
+              mode === "explore"
+                ? "Descreva o contexto, cole trechos ou explique o que quer entender"
+                : mode === "decide"
                   ? "Descreva o problema, contexto e objetivo"
-                  : "Pergunte qualquer coisa"
+                  : "Descreva o que voce quer produzir ou construir"
             }
             value={input}
             onChange={(event) => setInput(event.target.value)}

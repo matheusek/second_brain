@@ -6,16 +6,17 @@ type Message = {
 };
 
 type Provider = "gemini" | "ollama";
-type Mode = "code" | "strategy" | "general";
+type Mode = "explore" | "decide" | "build";
 
 const BASE_PROMPT =
   "Responda em portugues do Brasil por padrao. Seja direto, util e sem frases de atendimento genericas.";
 const MODE_PROMPTS: Record<Mode, string> = {
-  code:
-    `${BASE_PROMPT} Priorize programacao, debugging, arquitetura, review, refactor e passos executaveis. Quando houver trade-off tecnico, explicite. Quando houver codigo, entregue codigo limpo e curto.`,
-  strategy:
+  explore:
+    `${BASE_PROMPT} Priorize exploracao, entendimento de contexto, leitura de material, organizacao de ideias, hipoteses, perguntas uteis, lacunas e possibilidades.`,
+  decide:
     `${BASE_PROMPT} Priorize estrategia, produto, negocios, priorizacao, analise de trade-offs e planos objetivos. Estruture o raciocinio sem enrolacao.`,
-  general: BASE_PROMPT
+  build:
+    `${BASE_PROMPT} Priorize execucao e producao de saida util. Transforme contexto em plano, estrutura, checklist, texto, especificacao ou implementacao concreta.`,
 };
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -24,7 +25,7 @@ const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
 
 function getSystemPrompt(mode: Mode) {
-  return MODE_PROMPTS[mode] || MODE_PROMPTS.general;
+  return MODE_PROMPTS[mode] || MODE_PROMPTS.explore;
 }
 
 function toGeminiContents(messages: Message[], systemPrompt: string) {
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
     | null;
   const messages = body?.messages;
   const requestedProvider = body?.provider || "gemini";
-  const mode = body?.mode || "general";
+  const mode = body?.mode || "explore";
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json(

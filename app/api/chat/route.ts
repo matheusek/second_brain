@@ -7,6 +7,11 @@ type Message = {
 
 type Provider = "gemini" | "ollama";
 type Mode = "explore" | "decide" | "build";
+type WebSource = {
+  title: string;
+  url: string;
+  snippet: string;
+};
 
 const BASE_PROMPT =
   "Responda em portugues do Brasil por padrao. Seja direto, util e sem frases de atendimento genericas.";
@@ -26,6 +31,60 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
 
 function getSystemPrompt(mode: Mode) {
   return MODE_PROMPTS[mode] || MODE_PROMPTS.explore;
+}
+
+function decodeHtml(text: string) {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function searchWeb(query: string): Promise<WebSource[]> {
+  const response = await fetch(
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+    {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "text/html"
+      },
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Busca web falhou: ${response.statusText}`);
+  }
+
+  const html = await response.text();
+  const anchors = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/g)];
+  const snippets = [...html.matchAll(/<a class="result__snippet"[^>]*>(.*?)<\/a>|<div class="result__snippet"[^>]*>(.*?)<\/div>/g)];
+
+  return anchors.slice(0, 5).map((match, index) => ({
+    url: decodeHtml(match[1] || ""),
+    title: decodeHtml(match[2] || "Fonte"),
+    snippet: decodeHtml(snippets[index]?.[1] || snippets[index]?.[2] || "")
+  })).filter((source) => source.url && source.title);
+}
+
+function withWebContext(systemPrompt: string, sources: WebSource[]) {
+  if (sources.length === 0) {
+    return systemPrompt;
+  }
+
+  const sourceBlock = sources
+    .map(
+      (source, index) =>
+        `${index + 1}. ${source.title}\nURL: ${source.url}\nResumo: ${source.snippet || "Sem resumo"}`
+    )
+    .join("\n\n");
+
+  return `${systemPrompt}\n\nUse estas fontes web atuais quando forem relevantes:\n\n${sourceBlock}\n\nSe usar a web, sintetize com objetividade e sem inventar detalhes.`;
 }
 
 function toGeminiContents(messages: Message[], systemPrompt: string) {
@@ -102,11 +161,12 @@ async function chatWithOllama(messages: Message[], systemPrompt: string) {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as
-    | { messages?: Message[]; provider?: Provider; mode?: Mode }
+    | { messages?: Message[]; provider?: Provider; mode?: Mode; useWeb?: boolean }
     | null;
   const messages = body?.messages;
   const requestedProvider = body?.provider || "gemini";
   const mode = body?.mode || "explore";
+  const useWeb = body?.useWeb === true;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json(
@@ -116,7 +176,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const systemPrompt = getSystemPrompt(mode);
+    const lastUserMessage =
+      [...messages].reverse().find((message) => message.role === "user")?.content || "";
+    const sources = useWeb ? await searchWeb(lastUserMessage) : [];
+    const systemPrompt = withWebContext(getSystemPrompt(mode), sources);
     const provider: Provider =
       requestedProvider === "gemini" && GEMINI_API_KEY ? "gemini" : "ollama";
     const model = provider === "gemini" ? GEMINI_MODEL : OLLAMA_MODEL;
@@ -130,7 +193,7 @@ export async function POST(request: NextRequest) {
         role: "assistant",
         content
       },
-      meta: { provider, mode, model }
+      meta: { provider, mode, model, sources, usedWeb: useWeb }
     });
   } catch (error) {
     return NextResponse.json(

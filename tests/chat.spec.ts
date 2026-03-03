@@ -36,7 +36,7 @@ test("loads the app, switches provider/mode, and sends a message", async ({
 
   const segmented = page.locator(".segmented");
   const providerToggle = segmented.nth(0);
-  const modeToggle = segmented.nth(1);
+  const modeToggle = segmented.nth(2);
 
   await expect(page.locator(".newConversationButton")).toBeVisible();
   await expect(providerToggle.getByRole("button", { name: "gemma" })).toHaveClass(/is-active/);
@@ -71,7 +71,7 @@ test("keeps provider and mode per conversation when switching", async ({ page })
 
   const segmented = page.locator(".segmented");
   const providerToggle = segmented.nth(0);
-  const modeToggle = segmented.nth(1);
+  const modeToggle = segmented.nth(2);
   const conversationButtons = page.locator(".conversationItem");
   const newConversationButton = page.locator(".newConversationButton");
 
@@ -91,4 +91,47 @@ test("keeps provider and mode per conversation when switching", async ({ page })
   await conversationButtons.nth(1).click();
   await expect(providerToggle.getByRole("button", { name: "qwen" })).toHaveClass(/is-active/);
   await expect(modeToggle.getByRole("button", { name: "decide" })).toHaveClass(/is-active/);
+});
+
+test("uses web search toggle and renders sources", async ({ page }) => {
+  await page.route("**/api/chat", async (route) => {
+    const body = route.request().postDataJSON() as {
+      useWeb?: boolean;
+    };
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        message: {
+          role: "assistant",
+          content: `web:${body.useWeb === true ? "on" : "off"}`
+        },
+        meta: {
+          provider: "gemini",
+          mode: "explore",
+          model: "gemma-3-27b-it",
+          sources: [
+            {
+              title: "Bitcoin",
+              url: "https://example.com/bitcoin",
+              snippet: "Resumo de mercado."
+            }
+          ]
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "web" }).click();
+  await expect(page.getByRole("button", { name: "web" })).toHaveClass(/is-active/);
+
+  const input = page.getByLabel("Mensagem");
+  await input.fill("pesquise bitcoin hoje");
+  await input.press("Enter");
+
+  await expect(page.getByText("web:on")).toBeVisible();
+  await expect(page.getByText("fontes")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Bitcoin/i })).toBeVisible();
 });

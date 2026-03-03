@@ -16,11 +16,19 @@ type Step = {
   status: StepStatus;
 };
 
+type WebSource = {
+  title: string;
+  url: string;
+  snippet: string;
+};
+
 type ConversationSnapshot = {
   id: string;
   messages: Message[];
   provider: Provider;
   mode: Mode;
+  useWeb: boolean;
+  lastSources: WebSource[];
   updatedAt: string;
 };
 
@@ -45,6 +53,8 @@ function createConversation(
     messages: [initialMessage],
     provider,
     mode,
+    useWeb: false,
+    lastSources: [],
     updatedAt: new Date().toISOString()
   };
 }
@@ -179,6 +189,8 @@ export default function HomePage() {
   const messages = activeConversation?.messages || [initialMessage];
   const provider = activeConversation?.provider || "gemini";
   const mode = activeConversation?.mode || "explore";
+  const useWeb = activeConversation?.useWeb || false;
+  const lastSources = activeConversation?.lastSources || [];
 
   useEffect(() => {
     try {
@@ -223,6 +235,16 @@ export default function HomePage() {
                   messages: restoredMessages,
                   provider: restoredProvider,
                   mode: restoredMode,
+                  useWeb: conversation.useWeb === true,
+                  lastSources: Array.isArray(conversation.lastSources)
+                    ? conversation.lastSources.filter(
+                        (source): source is WebSource =>
+                          !!source &&
+                          typeof source.title === "string" &&
+                          typeof source.url === "string" &&
+                          typeof source.snippet === "string"
+                      )
+                    : [],
                   updatedAt: conversation.updatedAt || new Date().toISOString()
                 };
               })
@@ -375,7 +397,7 @@ export default function HomePage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages, provider, mode }),
+        body: JSON.stringify({ messages: nextMessages, provider, mode, useWeb }),
         signal: controller.signal
       });
 
@@ -386,13 +408,14 @@ export default function HomePage() {
 
       const data = (await response.json()) as {
         message: Message;
-        meta?: { provider?: Provider; mode?: Mode };
+        meta?: { provider?: Provider; mode?: Mode; sources?: WebSource[] };
       };
 
       updateActiveConversation((conversation) => ({
         ...conversation,
         provider: data.meta?.provider || conversation.provider,
         mode: data.meta?.mode || conversation.mode,
+        lastSources: data.meta?.sources || [],
         messages: [...conversation.messages, data.message],
         updatedAt: new Date().toISOString()
       }));
@@ -486,6 +509,22 @@ export default function HomePage() {
 
             <div className="segmented">
               <button
+                className={useWeb ? "is-active" : ""}
+                onClick={() =>
+                  updateActiveConversation((conversation) => ({
+                    ...conversation,
+                    useWeb: !conversation.useWeb,
+                    updatedAt: new Date().toISOString()
+                  }))
+                }
+                type="button"
+              >
+                web
+              </button>
+            </div>
+
+            <div className="segmented">
+              <button
                 className={mode === "explore" ? "is-active" : ""}
                 onClick={() =>
                   updateActiveConversation((conversation) => ({
@@ -560,15 +599,30 @@ export default function HomePage() {
           ) : null}
 
           {messages.map((message, index) => (
-            <article
-              className={
-                message.role === "assistant" ? "bubble bubble--assistant" : "bubble bubble--user"
-              }
-              key={`${message.role}-${index}-${message.content.slice(0, 12)}`}
-            >
-              <span className="bubble__role">{message.role === "assistant" ? "assistant" : "user"}</span>
-              <p>{message.content}</p>
-            </article>
+            <div className="messageBlock" key={`${message.role}-${index}-${message.content.slice(0, 12)}`}>
+              <article
+                className={
+                  message.role === "assistant" ? "bubble bubble--assistant" : "bubble bubble--user"
+                }
+              >
+                <span className="bubble__role">{message.role === "assistant" ? "AI" : "user"}</span>
+                <p>{message.content}</p>
+              </article>
+
+              {message.role === "assistant" && index === messages.length - 1 && lastSources.length > 0 ? (
+                <section className="sourcesCard" aria-label="Fontes web">
+                  <strong>fontes</strong>
+                  <div className="sourcesList">
+                    {lastSources.map((source) => (
+                      <a className="sourceItem" href={source.url} key={source.url} rel="noreferrer" target="_blank">
+                        <span>{source.title}</span>
+                        <small>{source.snippet || source.url}</small>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
           ))}
         </div>
 

@@ -326,6 +326,11 @@ input {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.messageBlock {
+  display: grid;
+  gap: 8px;
+}
+
 .bubble p {
   margin: 0;
   white-space: pre-wrap;
@@ -354,6 +359,44 @@ input {
 
 .bubble--pending {
   opacity: 0.72;
+}
+
+.sourcesCard {
+  max-width: min(720px, 100%);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 10px;
+}
+
+.sourcesCard strong {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.sourcesList {
+  display: grid;
+  gap: 8px;
+}
+
+.sourceItem {
+  display: grid;
+  gap: 4px;
+  color: var(--text);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sourceItem small {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .composer {

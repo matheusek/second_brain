@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typedRoutes: true
+  typedRoutes: true,
+  bundlePagesRouterDependencies: true,
+  experimental: {
+    devtoolSegmentExplorer: false
+  }
 };
 
 export default nextConfig;

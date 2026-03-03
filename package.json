@@ -1,11 +1,12 @@
 {
-  "name": "qwen-web",
+  "name": "second-brain",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "serve": "next start --hostname 0.0.0.0 --port 3001",
     "lint": "next lint"
   },
   "dependencies": {

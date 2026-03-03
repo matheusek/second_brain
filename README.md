@@ -30,6 +30,23 @@ Open:
 - Local: `http://127.0.0.1:3001`
 - LAN: `http://192.168.1.11:3001`
 
+## Production
+
+Build:
+
+```bash
+cd /home/matheus/second-brain
+npm run build
+```
+
+User service:
+
+```bash
+systemctl --user status second-brain
+systemctl --user restart second-brain
+systemctl --user stop second-brain
+```
+
 ## Environment
 
 Create `.env.local`:

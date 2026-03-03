@@ -5,16 +5,6 @@ type Message = {
   content: string;
 };
 
-type MemoryEntry = {
-  id: string;
-  content: string;
-};
-
-type ParsedAssistantResponse = {
-  content: string;
-  memorySuggestion?: string;
-};
-
 type Provider = "gemini" | "ollama";
 type Mode = "explore" | "decide" | "build";
 
@@ -36,40 +26,6 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
 
 function getSystemPrompt(mode: Mode) {
   return MODE_PROMPTS[mode] || MODE_PROMPTS.explore;
-}
-
-function withMemories(systemPrompt: string, memories: MemoryEntry[]) {
-  if (memories.length === 0) {
-    return systemPrompt;
-  }
-
-  const memoryBlock = memories
-    .slice(0, 12)
-    .map((memory, index) => `${index + 1}. ${memory.content.trim()}`)
-    .join("\n");
-
-  return `${systemPrompt}\n\nMemorias persistentes do usuario:\n${memoryBlock}\n\nUse essas memorias quando forem relevantes. Nao repita todas de volta sem necessidade.`;
-}
-
-function withMemorySuggestionInstructions(systemPrompt: string) {
-  return `${systemPrompt}\n\nSe identificar um fato duravel, preferencia estavel ou contexto que valha guardar para futuras conversas, adicione ao final uma unica linha no formato [memory] conteudo. So use isso quando a memoria realmente for util no futuro.`;
-}
-
-function parseAssistantResponse(content: string): ParsedAssistantResponse {
-  const compact = content.trim();
-  const match = compact.match(/\n?\[memory\]\s*(.+)$/i);
-
-  if (!match) {
-    return { content: compact };
-  }
-
-  const memorySuggestion = match[1]?.trim();
-  const cleaned = compact.replace(/\n?\[memory\]\s*.+$/i, "").trim();
-
-  return {
-    content: cleaned || compact,
-    memorySuggestion: memorySuggestion || undefined
-  };
 }
 
 function toGeminiContents(messages: Message[], systemPrompt: string) {
@@ -146,15 +102,9 @@ async function chatWithOllama(messages: Message[], systemPrompt: string) {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as
-    | { messages?: Message[]; provider?: Provider; mode?: Mode; memories?: MemoryEntry[] }
+    | { messages?: Message[]; provider?: Provider; mode?: Mode }
     | null;
   const messages = body?.messages;
-  const memories = Array.isArray(body?.memories)
-    ? body.memories.filter(
-        (memory): memory is MemoryEntry =>
-          !!memory && typeof memory.id === "string" && typeof memory.content === "string"
-      )
-    : [];
   const requestedProvider = body?.provider || "gemini";
   const mode = body?.mode || "explore";
 
@@ -166,29 +116,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const systemPrompt = withMemorySuggestionInstructions(
-      withMemories(getSystemPrompt(mode), memories)
-    );
+    const systemPrompt = getSystemPrompt(mode);
     const provider: Provider =
       requestedProvider === "gemini" && GEMINI_API_KEY ? "gemini" : "ollama";
     const model = provider === "gemini" ? GEMINI_MODEL : OLLAMA_MODEL;
-    const rawContent =
+    const content =
       provider === "gemini"
         ? await chatWithGemini(messages, systemPrompt)
         : await chatWithOllama(messages, systemPrompt);
-    const parsed = parseAssistantResponse(rawContent);
 
     return NextResponse.json({
       message: {
         role: "assistant",
-        content: parsed.content
+        content
       },
-      meta: {
-        provider,
-        mode,
-        model,
-        memorySuggestion: parsed.memorySuggestion
-      }
+      meta: { provider, mode, model }
     });
   } catch (error) {
     return NextResponse.json(

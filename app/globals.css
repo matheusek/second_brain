@@ -84,7 +84,6 @@ input {
 }
 
 .newConversationButton,
-.memoryToggle,
 .conversationItem {
   width: 100%;
   text-align: left;
@@ -97,133 +96,6 @@ input {
   color: var(--text);
   background: rgba(47, 111, 237, 0.12);
   cursor: pointer;
-}
-
-.memoryToggle {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 12px 14px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  display: grid;
-  gap: 4px;
-}
-
-.memoryToggle span {
-  color: var(--muted);
-  font-size: 0.76rem;
-  text-transform: lowercase;
-}
-
-.memoryPanel {
-  display: grid;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.memoryPanel textarea {
-  width: 100%;
-  resize: vertical;
-  min-height: 74px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #141414;
-  color: var(--text);
-  padding: 12px 14px;
-  outline: none;
-}
-
-.memoryPanel textarea:focus {
-  border-color: rgba(143, 180, 255, 0.42);
-  box-shadow: 0 0 0 4px rgba(47, 111, 237, 0.1);
-}
-
-.memoryFilterInput {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #141414;
-  color: var(--text);
-  padding: 10px 12px;
-  outline: none;
-}
-
-.memoryFilterInput:focus {
-  border-color: rgba(143, 180, 255, 0.42);
-  box-shadow: 0 0 0 4px rgba(47, 111, 237, 0.1);
-}
-
-.memoryAddButton {
-  border: 1px solid rgba(143, 180, 255, 0.16);
-  border-radius: 999px;
-  padding: 10px 14px;
-  color: var(--text);
-  background: rgba(47, 111, 237, 0.12);
-  cursor: pointer;
-}
-
-.memoryList {
-  display: grid;
-  gap: 8px;
-}
-
-.memoryEmpty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.memoryItem {
-  display: grid;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.015);
-}
-
-.memoryItem p {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.88rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.memoryItem button {
-  justify-self: start;
-  border: 0;
-  padding: 0;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.memoryItem__editor {
-  width: 100%;
-  resize: vertical;
-  min-height: 74px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #141414;
-  color: var(--text);
-  padding: 10px 12px;
-  outline: none;
-}
-
-.memoryItem__editor:focus {
-  border-color: rgba(143, 180, 255, 0.42);
-  box-shadow: 0 0 0 4px rgba(47, 111, 237, 0.1);
-}
-
-.memoryItem__actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .conversationList {
@@ -484,50 +356,6 @@ input {
   opacity: 0.72;
 }
 
-.memorySuggestion {
-  margin: 0 14px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(143, 180, 255, 0.14);
-  background: linear-gradient(180deg, rgba(47, 111, 237, 0.08), rgba(255, 255, 255, 0.02));
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.memorySuggestion__content {
-  display: grid;
-  gap: 6px;
-}
-
-.memorySuggestion__content strong {
-  font-size: 0.76rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.memorySuggestion__content p,
-.memorySuggestion__content span {
-  margin: 0;
-}
-
-.memorySuggestion__content p {
-  line-height: 1.5;
-}
-
-.memorySuggestion__content span {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.memorySuggestion__actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
 .composer {
   display: grid;
   gap: 10px;
@@ -619,8 +447,7 @@ input {
   }
 
   .topbar,
-  .composer__footer,
-  .memorySuggestion {
+  .composer__footer {
     flex-direction: column;
     align-items: stretch;
   }

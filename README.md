@@ -1,31 +1,31 @@
 # second_brain
 
-`second_brain` e um workbench de IA para uso pessoal: um lugar unico para explorar ideias, tomar decisoes e produzir entregas com modelos cloud e local.
+`second_brain` is a personal AI workbench: one place to explore ideas, make decisions, and produce concrete outputs using cloud and local models.
 
-## O que ja faz
+## Current capabilities
 
-- chat com dois provedores: Google AI (`gemini`) e Ollama (`qwen` local)
-- modos de trabalho: `explore`, `decide`, `build`
-- busca web opcional com fontes visiveis na resposta
-- historico de conversas salvo no navegador
-- passos de execucao exibidos em tempo real durante a resposta
-- cancelamento de resposta em andamento
+- chat with two providers: Google AI (`gemini`) and Ollama (`qwen` local)
+- work modes: `explore`, `decide`, `build`
+- optional web search with visible sources in responses
+- browser-persisted conversation history
+- live execution steps while generating answers
+- cancel in-flight responses
 
 ## Stack
 
 - Next.js 15 + React 18 + TypeScript
-- rota API em `app/api/chat/route.ts`
-- Playwright para testes de interface
+- API route in `app/api/chat/route.ts`
+- Playwright for UI tests
 
-## Requisitos
+## Requirements
 
 - Node.js 18+
 - npm
-- opcional: Ollama local para usar `qwen`
+- optional: local Ollama for `qwen`
 
-## Configuracao
+## Configuration
 
-Crie `.env.local` na raiz:
+Create `.env.local` in the project root:
 
 ```bash
 GEMINI_API_KEY=your_key_here
@@ -34,37 +34,37 @@ OLLAMA_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=qwen2.5:1.5b
 ```
 
-`GEMINI_API_KEY` e obrigatoria para usar o provedor Google AI.
+`GEMINI_API_KEY` is required to use Google AI.
 
-## Rodar localmente
+## Run locally
 
 ```bash
 npm install
 npm run dev -- --hostname 0.0.0.0 --port 3001
 ```
 
-Abra `http://127.0.0.1:3001`.
+Open `http://127.0.0.1:3001`.
 
 ## Scripts
 
-- `npm run dev`: desenvolvimento
-- `npm run build`: build de producao
-- `npm run start`: sobe app buildada
-- `npm run serve`: start em `0.0.0.0:3001`
-- `npm run test:ui`: testes Playwright
+- `npm run dev`: development
+- `npm run build`: production build
+- `npm run start`: run built app
+- `npm run serve`: start on `0.0.0.0:3001`
+- `npm run test:ui`: Playwright tests
 
-## Estrutura do repositorio
+## Repository structure
 
 ```text
-app/       interface e API (App Router)
-pages/     arquivos minimos do Pages Router
-tests/     testes de interface
-docs/      visao de produto, roadmap e backlog
+app/       UI and API (App Router)
+pages/     minimal Pages Router files
+tests/     UI tests
+docs/      product vision, roadmap, and backlog
 ```
 
-## Documentacao
+## Documentation
 
-- [Visao](./docs/VISION.md)
+- [Vision](./docs/VISION.md)
 - [Roadmap](./docs/ROADMAP.md)
 - [Backlog](./docs/BACKLOG.md)
 - [Issues](./docs/ISSUES.md)

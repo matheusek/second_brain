@@ -1,6 +1,6 @@
 # Docs
 
-- `VISION.md`: direcao de produto
-- `ROADMAP.md`: fases de evolucao
-- `BACKLOG.md`: backlog por area e prioridade
-- `ISSUES.md`: lista inicial de issues
+- `VISION.md`: product direction
+- `ROADMAP.md`: evolution phases
+- `BACKLOG.md`: backlog by area and priority
+- `ISSUES.md`: initial issue list
